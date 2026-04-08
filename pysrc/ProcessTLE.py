@@ -1,4 +1,5 @@
 #Generate Class to read TLE data from file and save it in json format to file
+from datetime import datetime, timezone
 import json
 from TLE import TLE 
 from pathlib import Path
@@ -37,9 +38,9 @@ class TLEProcessor:
         self.save_to_json()
         for tle in self.tle_data:
             print(f"Satellite: {tle.get_sat_name()}")
-            tle.generate_ground_track(1, 0)
+            start_time = datetime.now(timezone.utc)
+            tle.generate_ground_track(start_time=start_time, hours=1, minutes=0)
             lat_lon_alt = tle.get_lat_lon_alt()
-            print(f"Latitude: {lat_lon_alt['latitude']}, Longitude: {lat_lon_alt['longitude']}, Altitude (km): {lat_lon_alt['height_km']}")
 
 if __name__ == "__main__":
     print(Path.cwd())

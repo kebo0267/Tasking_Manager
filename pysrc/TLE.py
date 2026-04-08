@@ -20,6 +20,8 @@ class TLE:
         self.tle_line2: str = ""
         self.tle_object: object = {}
         self.geocentric: object = None
+        self.times: list = []
+
     # Create getters and setters for each the TLE data element in TLE_FIELDS
     def get_sat_name(self) -> str:
         return self.sat_name
@@ -216,12 +218,6 @@ class TLE:
     
     def get_data_as_dict(self) -> dict:
         return self.tle_object
-    
-    def generate_ground_track(self, hours: int, minutes: int=0, steps_seconds: int=60) -> None:
-        # Implementation for generating ground track data (latitude, longitude, altitude) over time
-        ts = load.timescale()
-        t0 = ts.now()                                   # current UTC time
-        self.generate_ground_track(t0.utc_datetime(), hours, minutes, steps_seconds)
 
     
     def generate_ground_track(self, start_time: datetime, hours: int, minutes: int=0, steps_seconds: int=60) -> None:
@@ -230,16 +226,15 @@ class TLE:
         t0 = ts.utc(start_time)
         deltaTime = timedelta(hours=hours, minutes=minutes)
         t1 = ts.utc(t0.utc_datetime() + deltaTime)
-
         # Create evenly spaced times (every steps_seconds seconds)
         numpts = int((t1.utc_datetime() - t0.utc_datetime()).total_seconds() / steps_seconds) + 1
-        times = ts.linspace(t0, t1, num=numpts)
+        self.times = ts.linspace(t0, t1, num=numpts)
 
         # ==================== COMPUTE POSITIONS ====================
         satellite = EarthSatellite(self.tle_line1, self.tle_line2, self.sat_name, ts)
 
         # Get geocentric position at all times
-        self.geocentric = satellite.at(times)
+        self.geocentric = satellite.at(self.times)
 
 
     def get_lat_lon_alt(self) -> dict: 
@@ -247,6 +242,7 @@ class TLE:
         if self.geocentric is None:
             raise ValueError("Ground track data not generated yet. Call generate_ground_track() first.")  
         lat_lon_alt = {}
+        lat_lon_alt["time"] = [t.utc_datetime().isoformat() for t in self.times]    
         lat_lon_alt["latitude"] = wgs84.latlon_of(self.geocentric)[0].degrees
         lat_lon_alt["longitude"] = wgs84.latlon_of(self.geocentric)[1].degrees
         lat_lon_alt["height_km"] = wgs84.height_of(self.geocentric).km
