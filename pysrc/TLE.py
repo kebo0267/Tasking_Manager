@@ -5,12 +5,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 import skyfield
 from skyfield.api import load, wgs84, EarthSatellite
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class TLE:
     TLE_FIELDS = ['name', 'norad_id', 'classification', 'intl_designator', 'epoch_year', 'epoch_day', 'mean_motion_dt', 
                   'mean_motion_ddt', 'bstar', 'ephemeris_type', 'element_number', 'inclination', 'raan', 'eccentricity', 
                   'arg_perigee', 'mean_anomaly', 'mean_motion', 'rev_number']
+
+    # Global variable for TLE Start Time and Duration
+    TLE_START_TIME: datetime = datetime.now(timezone.utc)
+    TLE_END_TIME: datetime = TLE_START_TIME + timedelta(hours=2, minutes=0)
+    TLE_STEPS_SECONDS: int = 60
 
 
     def __init__(self):
@@ -20,13 +25,17 @@ class TLE:
         self.tle_line2: str = ""
         self.tle_object: object = {}
         self.geocentric: object = None
+        self.start_time: datetime = TLE.TLE_START_TIME
+        self.end_time: datetime = TLE.TLE_END_TIME
+        self.steps_seconds: int = TLE.TLE_STEPS_SECONDS
         self.times: list = []
+        self.satellite: EarthSatellite = None
 
     # Create getters and setters for each the TLE data element in TLE_FIELDS
-    def get_sat_name(self) -> str:
+    def get_satellite_name(self) -> str:
         return self.sat_name
 
-    def set_sat_name(self, sat_name: str) -> None:
+    def set_satellite_name(self, sat_name: str) -> None:
         self.sat_name = sat_name
 
     def get_norad_id(self) -> int:
@@ -220,27 +229,25 @@ class TLE:
         return self.tle_object
 
     
-    def generate_ground_track(self, start_time: datetime, hours: int, minutes: int=0, steps_seconds: int=60) -> None:
+    def generate_ground_track(self) -> None:
         # Implementation for generating ground track data (latitude, longitude, altitude) over time
         ts = load.timescale()
-        t0 = ts.utc(start_time)
-        deltaTime = timedelta(hours=hours, minutes=minutes)
-        t1 = ts.utc(t0.utc_datetime() + deltaTime)
+        t0 = ts.utc(self.start_time)
+        t1 = ts.utc(self.end_time)
         # Create evenly spaced times (every steps_seconds seconds)
-        numpts = int((t1.utc_datetime() - t0.utc_datetime()).total_seconds() / steps_seconds) + 1
+        numpts = int((t1.utc_datetime() - t0.utc_datetime()).total_seconds() / self.steps_seconds) + 1
         self.times = ts.linspace(t0, t1, num=numpts)
 
         # ==================== COMPUTE POSITIONS ====================
-        satellite = EarthSatellite(self.tle_line1, self.tle_line2, self.sat_name, ts)
+        self.satellite = EarthSatellite(self.tle_line1, self.tle_line2, self.sat_name, ts)
 
         # Get geocentric position at all times
-        self.geocentric = satellite.at(self.times)
-
+        self.geocentric = self.satellite.at(self.times)
 
     def get_lat_lon_alt(self) -> dict: 
         # Convert to latitude, longitude, and height (km)
         if self.geocentric is None:
-            raise ValueError("Ground track data not generated yet. Call generate_ground_track() first.")  
+            self.generate_ground_track()
         lat_lon_alt = {}
         lat_lon_alt["time"] = [t.utc_datetime().isoformat() for t in self.times]    
         lat_lon_alt["latitude"] = wgs84.latlon_of(self.geocentric)[0].degrees
@@ -249,6 +256,212 @@ class TLE:
         return lat_lon_alt
     
 
-    
+    def plot_Latitude(self, ax: plt.Axes = None) -> None:
+        if self.geocentric is None:
+            self.generate_ground_track()
+        latitudes = wgs84.latlon_of(self.geocentric)[0].degrees
+        # Set the x-axis to show time in UTC format and the y-axis to show latitude from +90 to -90 in degrees, and add grid lines
+        
+        if ax is None:
+            plt.figure(figsize=(10, 5))
+            plt.plot(latitudes)
+            plt.xlim(0, len(latitudes) - 1)
+            plt.ylim(-100, 100)
+            #set title font size to 10
+            if plt.gca().get_title() == "":
+                plt.title(f"Latitude vs Time for\n{self.sat_name}", fontsize='small')
+            else:
+                plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
+            plt.xlabel("Time (UTC)")
+            plt.ylabel("Latitude (degrees)")
+            plt.grid(True)
+            plt.show()
+        else:
+            ax.plot(latitudes)
+            ax.set_xlim(0, len(latitudes) - 1)
+            ax.set_ylim(-100, 100)
+            if ax.get_title() == "":
+                ax.set_title(f"Latitude vs Time for\n{self.sat_name}", fontsize='small')
+            else:
+                ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
+            ax.set_xlabel("Time (UTC)")
+            ax.set_ylabel("Latitude (degrees)")
+            ax.grid(True)
 
+    def plot_Longitude(self, ax: plt.Axes = None) -> None:
+        if self.geocentric is None:
+            self.generate_ground_track()
+        longitudes = wgs84.latlon_of(self.geocentric)[1].degrees
+        # Set the x-axis to show time in UTC format and the y-axis to show longitude from +180 to -180 in degrees, and add grid lines
+        if ax is None:
+            plt.figure(figsize=(10, 5))
+            plt.plot(longitudes)
+            plt.xlim(0, len(longitudes) - 1)
+            plt.ylim(-200, 200)
+            if plt.gca().get_title() == "":
+                plt.title(f"Longitude vs Time for\n{self.sat_name}", fontsize='small')
+            else:
+                plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
+            plt.xlabel("Time (UTC)")
+            plt.ylabel("Longitude (degrees)")
+            plt.grid(True)
+            plt.show()
+        else:
+            ax.plot(longitudes)
+            ax.set_xlim(0, len(longitudes) - 1)
+            ax.set_ylim(-200, 200)
+            if ax.get_title() == "":
+                ax.set_title(f"Longitude vs Time for\n{self.sat_name}", fontsize='small')
+            else:
+                ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
+            ax.set_xlabel("Time (UTC)")
+            ax.set_ylabel("Longitude (degrees)")
+            ax.grid(True)
+
+    def plot_Altitude(self, ax: plt.Axes = None) -> None:
+        if self.geocentric is None:
+            self.generate_ground_track()
+        altitudes = wgs84.height_of(self.geocentric).km
+
+        # Set the x-axis to show time in UTC format and the y-axis to show altitude in kilometers, and add grid lines
+        if ax is None:
+            plt.figure(figsize=(10, 5))
+            plt.plot(altitudes)
+            plt.xlim(0, len(altitudes) - 1)
+            if plt.gca().get_title() == "":
+                plt.title(f"Altitude vs Time for\n{self.sat_name}", fontsize='small')
+            else:
+                plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
+            plt.xlabel("Time (UTC)")
+            plt.ylabel("Altitude (km)")
+            plt.grid(True)
+            plt.show()
+        else:
+            ax.plot(altitudes)
+            ax.set_xlim(0, len(altitudes) - 1)
+            if ax.get_title() == "":
+                ax.set_title(f"Altitude vs Time for\n {self.sat_name}", fontsize='small')
+            else:
+                ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
+            ax.set_xlabel("Time (UTC)")
+            ax.set_ylabel("Altitude (km)")
+            ax.grid(True)
     
+    def plot_ground_track(self, ax: plt.Axes = None) -> None:
+        if self.geocentric is None:
+            self.generate_ground_track()
+        latitudes = wgs84.latlon_of(self.geocentric)[0].degrees
+        longitudes = wgs84.latlon_of(self.geocentric)[1].degrees
+
+        # Set the x-axis to show longitude from +180 to -180 in degrees and the y-axis to show latitude from +90 to -90 in degrees, and add grid lines
+        # Make the legend smaller and place it in the upper right corner
+        if ax is None:
+            plt.figure(figsize=(10, 5))
+            plt.scatter(longitudes, latitudes, s=1, label=self.sat_name)
+            plt.scatter(longitudes[0], latitudes[0], color='green', s=5, label='Start')
+            plt.scatter(longitudes[-1], latitudes[-1], color='red', s=5, label='End')
+            plt.xlim(-190, 190)
+            plt.ylim(-100, 100)
+            if plt.gca().get_title() == "":
+                plt.title(f"Ground Track for\n{self.sat_name}", fontsize='small')
+            else:
+                plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
+            plt.xlabel("Longitude (degrees)")
+            plt.ylabel("Latitude (degrees)")
+            #plt.legend(fontsize='small' , loc='upper right')
+            plt.grid(True)
+            plt.show()
+            
+        else:
+            ax.scatter(longitudes, latitudes, s=1, label=self.sat_name)
+            ax.scatter(longitudes[0], latitudes[0], color='green', s=5, label='Start')
+            ax.scatter(longitudes[-1], latitudes[-1], color='red', s=5, label='End')
+            ax.set_xlim(-190, 190)
+            ax.set_ylim(-100, 100)
+            if ax.get_title() == "":
+                ax.set_title(f"Ground Track for\n{self.sat_name}", fontsize='small')
+            else:
+                ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
+            ax.set_xlabel("Longitude (degrees)")
+            ax.set_ylabel("Latitude (degrees)")
+            #ax.legend(fontsize='small' , loc='upper right')
+            ax.grid(True)
+
+    # Method to plot the distance between two TLE objects at a given time range in kilometers
+    def plot_distance_to_other_satellite(self, other_tle: object, time_range: list=None) -> None:
+        # Implementation for plotting distance between two TLE objects at a given time range
+        distances = self.distance_to_other_satellite(other_tle, time_range)
+        
+        plt.figure(figsize=(10, 5))
+        plt.plot(distances["distance_km"], label=f"Distance between {self.sat_name} and {other_tle.sat_name}")
+        plt.xlabel("Time (UTC)")
+        plt.ylabel("Distance (km)")
+        plt.title(f"Distance between {self.sat_name} and {other_tle.sat_name} vs Time", fontsize='small')
+        plt.xticks(rotation=45)
+        plt.grid(True)
+        plt.legend(fontsize='small' , loc='upper right')
+        plt.tight_layout()
+        plt.show()
+
+    # Method to return the distance between two TLE objects at a given time range in kilometers
+    def distance_to_other_satellite(self, other_tle: object, time_range: list=None) -> dict:
+        # Implementation for calculating distance between two TLE objects at a given time range
+        if time_range is None:
+            time_range = self.times
+
+        if self.geocentric is None:
+            self.generate_ground_track()
+
+        if other_tle.geocentric is None:
+            other_tle.generate_ground_track()
+        
+        # Calculate the distance between the two TLE objects at each time step and return the average distance in kilometers
+        distances = {}
+        distances["satellite1"] = self.sat_name
+        distances["satellite2"] = other_tle.sat_name
+        distances["time"] = []
+        distances["time_hr"] = []
+        distances["distance_km"] = []
+        
+        index = 0
+        for t in self.times:
+            distances["time_hr"].append(t.utc_datetime().isoformat())
+            distances["time"].append(t)
+            
+            pos1 = self.satellite.at(self.times[index])
+            pos2 = other_tle.satellite.at(other_tle.times[index])
+            
+            in_view = self.in_view_of_other_satellite(other_tle, self.times[index])
+
+            if not in_view:
+                distance = float(-1)  # or some large number to indicate they are not visible to each other            
+            else:
+                distance = (pos1 - pos2).distance().km
+            distances["distance_km"].append(distance)
+            index += 1
+        
+        return distances
+    
+    # Method to determing if two TLE objects are in view of each other at a given time
+    def in_view_of_other_satellite(self, other_tle: object, time: float) -> bool:
+        # Implementation for determining if two TLE objects are in view of each other at a given time
+        
+        if self.geocentric is None:
+            self.generate_ground_track()
+
+        if other_tle.geocentric is None:
+            other_tle.generate_ground_track()
+        # Calculate the distance between the two TLE objects at the given time
+        pos1 = self.satellite.at(time).xyz.km
+        pos2 = other_tle.satellite.at(time).xyz.km
+
+        # Calculate the vector from Sat1 to Sat2
+        vector_from_sat1_to_sat2 = pos2 - pos1
+
+        # Check if the Earth blocks the line of sight from Sat1's perspective
+        cross = np.cross(pos1, vector_from_sat1_to_sat2)
+        perp_distance = np.linalg.norm(cross) / np.linalg.norm(vector_from_sat1_to_sat2)
+
+        radius_earth_km = 6371  # Average radius of Earth in kilometers
+        in_view = perp_distance > radius_earth_km
+        return in_view
