@@ -36,11 +36,15 @@ class TLEProcessor:
     def process(self) -> None:
         self.read_tle_data()
         self.save_to_json()
+        start_time = datetime.now(timezone.utc)
+        prcnt = True
         for tle in self.tle_data:
-            print(f"Satellite: {tle.get_sat_name()}")
-            start_time = datetime.now(timezone.utc)
-            tle.generate_ground_track(start_time=start_time, hours=1, minutes=0)
+            #print(f"Satellite: {tle.get_sat_name()}")
+            tle.generate_ground_track(start_time=start_time, hours=2, minutes=0)
             lat_lon_alt = tle.get_lat_lon_alt()
+            if prcnt:
+                print(lat_lon_alt)
+                prcnt = False
 
 if __name__ == "__main__":
     print(Path.cwd())
