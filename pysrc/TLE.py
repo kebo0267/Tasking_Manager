@@ -16,6 +16,8 @@ class TLE:
     TLE_START_TIME: datetime = datetime.now(timezone.utc)
     TLE_END_TIME: datetime = TLE_START_TIME + timedelta(hours=2, minutes=0)
     TLE_STEPS_SECONDS: int = 60
+    TLE_DEFAULT_FOV_ANGLE_DEG: float = 5.0
+
 
 
     def __init__(self):
@@ -30,8 +32,8 @@ class TLE:
         self.steps_seconds: int = TLE.TLE_STEPS_SECONDS
         self.times: list = []
         self.satellite: EarthSatellite = None
-        self.foot_print_radius_km: float = 0.0
-        self.default_fov_angle_deg: float = 5.0
+        self.foot_print_radius_km: list = None
+        self.default_fov_angle_deg: float = TLE.TLE_DEFAULT_FOV_ANGLE_DEG
 
     # Create getters and setters for each the TLE data element in TLE_FIELDS
     def get_satellite_name(self) -> str:
@@ -40,62 +42,68 @@ class TLE:
     def set_default_fov_angle(self, fov_angle_deg: float) -> None:
         self.default_fov_angle_deg = fov_angle_deg
 
+    def get_footprint_radius_km(self) -> list:
+        if self.foot_print_radius_km is None:
+            self.generate_ground_track()
+
+        return self.foot_print_radius_km
+
     def set_satellite_name(self, sat_name: str) -> None:
         self.sat_name = sat_name
 
     def get_norad_id(self) -> int:
-        return self.tle_object.get(TLE.TLE_FIELDS[1], 0)
+        return int(self.tle_object.get(TLE.TLE_FIELDS[1], 0))
     
     def set_norad_id(self, norad_id: int) -> None:
         self.tle_object[TLE.TLE_FIELDS[1]] = norad_id  
 
     def get_classification(self) -> str:
-        return self.tle_object.get(TLE.TLE_FIELDS[2], "")
+        return self.tle_object.get(TLE.TLE_FIELDS[2], "").strip()
     
     def get_intl_designator(self) -> str:
-        return self.tle_object.get(TLE.TLE_FIELDS[3], "")
+        return self.tle_object.get(TLE.TLE_FIELDS[3], "").strip()  
     
     def get_epoch_year(self) -> int:
-        return self.tle_object.get(TLE.TLE_FIELDS[4], 0)
+        return int(self.tle_object.get(TLE.TLE_FIELDS[4], 0))
     
     def get_epoch_day(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[5], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[5], 0.0))
     
     def get_mean_motion_dt(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[6], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[6], 0.0))
     
     def get_mean_motion_ddt(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[7], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[7], 0.0))
     
     def get_bstar(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[8], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[8], 0.0))
     
     def get_ephemeris_type(self) -> int:
-        return self.tle_object.get(TLE.TLE_FIELDS[9], 0)
+        return int(self.tle_object.get(TLE.TLE_FIELDS[9], 0))
     
     def get_element_number(self) -> int:
-        return self.tle_object.get(TLE.TLE_FIELDS[10], 0)
+        return int(self.tle_object.get(TLE.TLE_FIELDS[10], 0))
     
     def get_inclination(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[11], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[11], 0.0))
     
     def get_raan(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[12], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[12], 0.0))
     
     def get_eccentricity(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[13], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[13], 0.0))
     
     def get_arg_perigee(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[14], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[14], 0.0))
     
     def get_mean_anomaly(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[15], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[15], 0.0))
     
     def get_mean_motion(self) -> float:
-        return self.tle_object.get(TLE.TLE_FIELDS[16], 0.0)
+        return float(self.tle_object.get(TLE.TLE_FIELDS[16], 0.0))
     
     def get_rev_number(self) -> int:
-        return self.tle_object.get(TLE.TLE_FIELDS[17], 0)
+        return int(self.tle_object.get(TLE.TLE_FIELDS[17], 0))
 
     def fixed_width_string(self, text: str, width: int, align: str = 'left', fill_char: str = ' ') -> str:
         """
@@ -159,7 +167,7 @@ class TLE:
         self.tle_line2 = tle_line2
         self.parse_tle_to_dict()
     
-    def parse_tle_to_dict(self, sat_name: str=None, tle_line1: str=None, tle_line2: str=None) -> dict:
+    def parse_tle_to_dict(self, sat_name: str=None, tle_line1: str=None, tle_line2: str=None) -> None:
         # Implementation for parsing TLE data to dictionary format
         if sat_name is not None:
             self.sat_name = sat_name
@@ -171,26 +179,26 @@ class TLE:
         self.tle_object[TLE.TLE_FIELDS[0]] = self.sat_name
         # Parse tle_line1 and tle_line2 to extract the TLE data elements and store them in the tle_object dictionary
         
-        self.tle_object[TLE.TLE_FIELDS[1]] = int(self.tle_line1[2:7].strip())  # norad_id
-        self.tle_object[TLE.TLE_FIELDS[2]] = self.tle_line1[7:8].strip()  # classification
-        self.tle_object[TLE.TLE_FIELDS[3]] = self.tle_line1[9:17].strip()  # intl_designator
-        self.tle_object[TLE.TLE_FIELDS[4]] = int(self.tle_line1[18:20].strip())  # epoch_year
-        self.tle_object[TLE.TLE_FIELDS[5]] = float(self.tle_line1[20:32].strip())  # epoch_day
-        self.tle_object[TLE.TLE_FIELDS[6]] = float(self.tle_line1[33:43].strip())  # mean_motion_dt
-        self.tle_object[TLE.TLE_FIELDS[7]] = float(self.tle_float(self.tle_line1[44:52].replace(' ','0'), 8, 8))  # mean_motion_ddt
-        self.tle_object[TLE.TLE_FIELDS[8]] = float(self.tle_float(self.tle_line1[53:61].replace(' ','0'), 8, 8))  # bstar
-        self.tle_object[TLE.TLE_FIELDS[9]] = int(self.tle_line1[62:63].strip())  # ephemeris_type
-        self.tle_object[TLE.TLE_FIELDS[10]] = int(self.tle_line1[64:68].strip())  # element_number
-        self.tle_object[TLE.TLE_FIELDS[11]] = float(self.tle_line2[8:16].strip())  # inclination
-        self.tle_object[TLE.TLE_FIELDS[12]] = float(self.tle_line2[17:25].strip())  # raan
-        self.tle_object[TLE.TLE_FIELDS[13]] = float('0.' + self.tle_line2[26:33].strip())  # eccentricity
-        self.tle_object[TLE.TLE_FIELDS[14]] = float(self.tle_line2[34:42].strip())  # arg_perigee
-        self.tle_object[TLE.TLE_FIELDS[15]] = float(self.tle_line2[43:51].strip())  # mean_anomaly
-        self.tle_object[TLE.TLE_FIELDS[16]] = float(self.tle_line2[52:63].strip())  # mean_motion
-        self.tle_object[TLE.TLE_FIELDS[17]] = int(self.tle_line2[63:68].strip())  # rev_number
+        self.tle_object[TLE.TLE_FIELDS[1]] = self.tle_line1[2:7]  # norad_id
+        self.tle_object[TLE.TLE_FIELDS[2]] = self.tle_line1[7:8]  # classification
+        self.tle_object[TLE.TLE_FIELDS[3]] = self.tle_line1[8:17]  # intl_designator
+        self.tle_object[TLE.TLE_FIELDS[4]] = self.tle_line1[17:20]  # epoch_year
+        self.tle_object[TLE.TLE_FIELDS[5]] = self.tle_line1[20:32]  # epoch_day
+        self.tle_object[TLE.TLE_FIELDS[6]] = self.tle_line1[32:43]  # mean_motion_dt
+        self.tle_object[TLE.TLE_FIELDS[7]] = self.tle_line1[43:52]  # mean_motion_ddt
+        self.tle_object[TLE.TLE_FIELDS[8]] = self.tle_line1[52:61]  # bstar
+        self.tle_object[TLE.TLE_FIELDS[9]] = self.tle_line1[61:63]  # ephemeris_type
+        self.tle_object[TLE.TLE_FIELDS[10]] = self.tle_line1[63:69]  # element_number
+        self.tle_object[TLE.TLE_FIELDS[11]] = self.tle_line2[7:16]  # inclination
+        self.tle_object[TLE.TLE_FIELDS[12]] = self.tle_line2[16:25]  # raan
+        self.tle_object[TLE.TLE_FIELDS[13]] = self.tle_line2[25:33]  # eccentricity
+        self.tle_object[TLE.TLE_FIELDS[14]] = self.tle_line2[33:42]  # arg_perigee
+        self.tle_object[TLE.TLE_FIELDS[15]] = self.tle_line2[42:51]  # mean_anomaly
+        self.tle_object[TLE.TLE_FIELDS[16]] = self.tle_line2[51:63]  # mean_motion
+        self.tle_object[TLE.TLE_FIELDS[17]] = self.tle_line2[63:69]  # rev_number
 
     def parse_tle_from_json(self, json_str: str) -> None:
-        # Implementation for parsing TLE data from JSON string
+        # Implementation for parsing TLE data from JSON stringtle_dict.get(TLE.TLE_FIELDS[5]
         tle_dict = json.loads(json_str)
         self.parse_tle_from_dict(tle_dict)
 
@@ -199,26 +207,27 @@ class TLE:
         # Implementation for parsing TLE data from JSON data
         self.sat_name = tle_dict.get(TLE.TLE_FIELDS[0], "")
         self.tle_line1 = "1 "
-        self.tle_line1 += self.tle_int(tle_dict.get(TLE.TLE_FIELDS[1], ""), 5)                    # norad_id
-        self.tle_line1 += self.tle_dict.get(TLE.TLE_FIELDS[2], " ")                               # classification
-        self.tle_line1 += " " + self.fixed_width_string(tle_dict.get(TLE.TLE_FIELDS[3], ""), 8)   # intl_designator
-        self.tle_line1 += self.tle_int(tle_dict.get(TLE.TLE_FIELDS[4], ""), 2)                    # epoch_year
-        self.tle_line1 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[5], ""), 12, 8)              # epoch_day
-        self.tle_line1 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[6], ""), 10, 8)              # mean_motion_dt
-        self.tle_line1 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[7], ""), 10, 8)              # mean_motion_ddt
-        self.tle_line1 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[8], ""), 10, 8)              # bstar
-        self.tle_line1 += self.tle_int(tle_dict.get(TLE.TLE_FIELDS[9], ""), 1)                    # ephemeris_type
-        self.tle_line1 += self.tle_int(tle_dict.get(TLE.TLE_FIELDS[10], ""), 4)                   # element_number
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[1], "")                    # norad_id
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[2], " ")                               # classification
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[3], "")                                # intl_designator
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[4], "")                                # epoch_year
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[5], "")              # epoch_day
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[6], "")        # mean_motion_dt
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[7], "")              # mean_motion_ddt
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[8], "")              # bstar
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[9], "")                    # ephemeris_type
+        self.tle_line1 += tle_dict.get(TLE.TLE_FIELDS[10], "")                   # element_number
         self.tle_line2 = "2 "
-        self.tle_line2 += self.tle_int(tle_dict.get(TLE.TLE_FIELDS[1], ""), 5)                    # norad_id
-        self.tle_line2 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[11], ""), 8, 4)              # inclination
-        self.tle_line2 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[12], ""), 8, 4)              # raan
-        self.tle_line2 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[13], ""), 7, 7)              # eccentricity
-        self.tle_line2 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[14], ""), 8, 4)              # arg_perigee
-        self.tle_line2 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[15], ""), 8, 4)              # mean_anomaly
-        self.tle_line2 += self.tle_float(tle_dict.get(TLE.TLE_FIELDS[16], ""), 11, 8)             # mean_motion
-        self.tle_line2 += self.tle_int(tle_dict.get(TLE.TLE_FIELDS[17], ""), 5)                   # rev_number
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[1], "")                    # norad_id
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[11], "")              # inclination
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[12], "")              # raan
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[13], "")              # eccentricity
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[14], "")              # arg_perigee
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[15], "")              # mean_anomaly
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[16], "")             # mean_motion
+        self.tle_line2 += tle_dict.get(TLE.TLE_FIELDS[17], "")                   # rev_number
 
+        self.parse_tle_to_dict()
 
     def get_data(self) -> dict:
         return {
@@ -248,18 +257,24 @@ class TLE:
 
         # Get geocentric position at all times
         self.geocentric = self.satellite.at(self.times)
+        heights = wgs84.height_of(self.geocentric).km
+        # For each element in heights, calculate the footprint radius in kilometers using the function self.calculate   _footprint and store the results in self.foot_print_radius_km
+        self.foot_print_radius_km = [ self.calculate_footprint(altitude_km=h) for h in heights ]   
 
-    def get_lat_lon_alt(self) -> dict: 
+    def get_satellite_info(self) -> dict: 
         # Convert to latitude, longitude, and height (km)
         if self.geocentric is None:
             self.generate_ground_track()
-        lat_lon_alt = {}
-        lat_lon_alt["time"] = [t.utc_datetime().isoformat() for t in self.times]    
-        lat_lon_alt["latitude"] = wgs84.latlon_of(self.geocentric)[0].degrees
-        lat_lon_alt["longitude"] = wgs84.latlon_of(self.geocentric)[1].degrees
-        lat_lon_alt["height_km"] = wgs84.height_of(self.geocentric).km
-        return lat_lon_alt
-    
+        statellite_info = {}
+        statellite_info["time_hr"] = [t.utc_datetime().isoformat() for t in self.times]
+        statellite_info["time"] = [ int(t.utc_datetime().timestamp()) for t in self.times]    
+        statellite_info["latitude"] = wgs84.latlon_of(self.geocentric)[0].degrees
+        statellite_info["longitude"] = wgs84.latlon_of(self.geocentric)[1].degrees
+        statellite_info["height_km"] = wgs84.height_of(self.geocentric).km
+        statellite_info["footprint_radius_km"] = self.foot_print_radius_km
+
+        return statellite_info
+
 
     def plot_Latitude(self, ax: plt.Axes = None) -> None:
         if self.geocentric is None:
@@ -483,7 +498,9 @@ class TLE:
         return in_view
     
     # Method to calculate the footprint of a TLE object given its altitude and a field of view angle in degrees
-    def calculate_footprint(self, fov_angle_deg: float, altitude_km: float) -> float:
+    def calculate_footprint(self, altitude_km: float, fov_angle_deg: float = None) -> float:
+        if fov_angle_deg is None:
+            fov_angle_deg = self.default_fov_angle_deg
         
         # Calculate the footprint radius in kilometers based on the altitude and field of view angle
         fov_angle_rad = np.radians(fov_angle_deg)

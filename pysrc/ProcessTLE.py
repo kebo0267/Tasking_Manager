@@ -2,13 +2,14 @@
 from datetime import datetime, timedelta, timezone
 import json
 from operator import index
+import random
 from TLE import TLE 
 from pathlib import Path
 from matplotlib import pyplot as plt
 
 
 class TLEProcessor:
-    def __init__(self, tle_file, json_file):
+    def __init__(self, tle_file, json_file=None):
         self.tle_file = tle_file
         self.json_file = json_file
         self.tle_data = []
@@ -50,13 +51,32 @@ class TLEProcessor:
 
     def save_to_json(self) -> None:
         # Implementation for saving data to JSON file
-        with open(self.json_file, 'w', encoding='utf-8') as f:
-            json.dump([tle.get_data_as_dict() for tle in self.tle_data], f,indent=4 )
+        if not self.json_file is None:
+            with open(self.json_file, 'w', encoding='utf-8') as f:
+                json.dump([tle.get_data_as_dict() for tle in self.tle_data], f,indent=4 )
+
+    # Read TLE data from JSON file and create TLE objects
+    def read_from_json(self) -> None:
+        
+        with open(self.tle_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            print(f"Total TLE entries read from JSON file: {len(data)}")
+            for tle_dict in data:
+                tle_object = TLE()
+                tle_object.parse_tle_from_dict(tle_dict)
+                self.tle_data.append(tle_object)
+        print(f"Total TLE entries read from JSON: {len(self.tle_data)}")
 
     # Main method to process TLE data
     def process(self) -> None:
-        self.read_tle_data()
-        self.save_to_json()
+        print (f"Processing TLE data from file: {self.tle_file}")
+        if self.tle_file.endswith('.json'):
+            print (f"Reading TLE data from JSON file: {self.tle_file}")
+            self.read_from_json()
+        else:
+            print (f"Reading TLE data from text file: {self.tle_file}")
+            self.read_tle_data()
+            self.save_to_json()
 
 
     # Metod to retrieve TLE data as a list filtered by satellite name
@@ -109,18 +129,88 @@ class TLEProcessor:
         tle2 = tle_data2[0]
         tle1.plot_distance_to_other_satellite(tle2, in_view_only=in_view_only)
 
+    # Create histogram of satellite inclination angles
+    def plot_inclination_histogram(self) -> None:
+        inclinations = [tle.get_inclination() for tle in self.tle_data]
+        plt.hist(inclinations, bins=200, edgecolor='black')
+        plt.title('Histogram of Satellite Inclination Angles')
+        plt.xlabel('Inclination (degrees)')
+        plt.ylabel('Number of Satellites')
+        plt.grid(axis='y', alpha=0.75)
+        plt.show()
 
+    # Create plot of satellite footprint radius vs time for a given satellite
+    def plot_footprint_radius_over_time(self, satellite_name: str) -> None:
+        tle_data = self.get_tle_data_by_name(satellite_name)
+        
+        if not tle_data:
+            print(f"Satellite not found: {satellite_name}")
+            return
+        
+        tle = tle_data[0]
+        #times = tle.times
+        footprint_radius_km = tle.get_footprint_radius_km()
+        
+        plt.plot(footprint_radius_km)
+        plt.title(f'Footprint Radius Over Time for {satellite_name}')
+        plt.xlabel('Time (UTC)')
+        plt.ylabel('Footprint Radius (km)')
+        plt.xticks(rotation=45)
+        plt.grid()
+        plt.tight_layout()
+        plt.show()
+
+   # Create Method to pick a set number of random satellites based on inclination angle and save their TLE data to a new JSON file
+    def save_random_satellites_by_inclination(self, num_satellites: int, inclination_range: tuple, output_json_file: str, append: bool) -> None:
+
+        filtered_tle_data = [tle for tle in self.tle_data if inclination_range[0] <= tle.get_inclination() <= inclination_range[1]]
+        
+        if len(filtered_tle_data) < num_satellites:
+            print(f"Not enough satellites found in the specified inclination range. Found {len(filtered_tle_data)} satellites.")
+            return
+        
+        random_satellites = [] 
+        counter = 0
+        while len(random_satellites) < num_satellites:
+            flip = random.randint(0, 5)
+            if flip == 5:
+                random_satellites.append(filtered_tle_data[counter])
+            counter += 1
+            if counter >= len(filtered_tle_data):
+                counter = 0
+        
+        
+        if append:
+            with open(output_json_file, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+            existing_data.extend([tle.get_data_as_dict() for tle in random_satellites])
+            with open(output_json_file, 'w', encoding='utf-8') as f:
+                json.dump(existing_data, f, indent=4)
+        else:
+            with open(output_json_file, 'w', encoding='utf-8') as f:
+                json.dump([tle.get_data_as_dict() for tle in random_satellites], f, indent=4)
+            
 
 if __name__ == "__main__":
     print(Path.cwd())
-    tle_processor = TLEProcessor('data/starlink.txt', 'data/starlink.json')
+    tle_processor = TLEProcessor('data/trainging_data_starlink.json')
+    #tle_processor = TLEProcessor("data/starlink.txt", "data/starlink.json")
     # Set TLE start time to current UTC time and duration to 2 hours
-    tle_processor.set_tle_start_time(datetime.now(timezone.utc))
+    tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=30))
     tle_processor.set_tle_duration(hours=12, minutes=0)
+    
     # Set global TLE start time and duration in TLE class
     TLE.TLE_START_TIME = tle_processor.tle_start_time
     TLE.TLE_END_TIME = tle_processor.tle_end_time
+    TLE.TLE_DEFAULT_FOV_ANGLE_DEG = 20
     tle_processor.process()
-    tle_processor.plot_ground_tracks(["STARLINK-1031","STARLINK-32620","STARLINK-35057"])
-    tle_processor.plot_distance_between_satellites("STARLINK-1031", "STARLINK-32620", in_view_only=False)
     
+
+    #tle_processor.plot_ground_tracks(["STARLINK-1031","STARLINK-32620","STARLINK-35057"])
+    #tle_processor.plot_distance_between_satellites("STARLINK-1031", "STARLINK-32620", in_view_only=False)
+    tle_processor.plot_inclination_histogram()
+    #tle_processor.plot_footprint_radius_over_time("STARLINK-35057")
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(0, 50), output_json_file='data/trainging_data_starlink.json', append=False)
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(50, 60), output_json_file='data/trainging_data_starlink.json', append=True)
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(60, 75), output_json_file='data/trainging_data_starlink.json', append=True)
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(85, 100), output_json_file='data/trainging_data_starlink.json', append=True)
