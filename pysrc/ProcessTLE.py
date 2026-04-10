@@ -97,7 +97,7 @@ class TLEProcessor:
         fig.legend(handles=unique_labels.values(), labels=unique_labels.keys(), loc='upper right', fontsize='small')
         plt.show()
             
-    def plot_distance_between_satellites(self, satellite_name1: str, satellite_name2: str) -> None:
+    def plot_distance_between_satellites(self, satellite_name1: str, satellite_name2: str, in_view_only: bool=False) -> None:
         tle_data1 = self.get_tle_data_by_name(satellite_name1)
         tle_data2 = self.get_tle_data_by_name(satellite_name2)
         
@@ -107,7 +107,7 @@ class TLEProcessor:
         
         tle1 = tle_data1[0]
         tle2 = tle_data2[0]
-        tle1.plot_distance_to_other_satellite(tle2)
+        tle1.plot_distance_to_other_satellite(tle2, in_view_only=in_view_only)
 
 
 
@@ -121,6 +121,6 @@ if __name__ == "__main__":
     TLE.TLE_START_TIME = tle_processor.tle_start_time
     TLE.TLE_END_TIME = tle_processor.tle_end_time
     tle_processor.process()
-    #tle_processor.plot_ground_tracks(["STARLINK-1031","STARLINK-32620","STARLINK-35057"])
-    tle_processor.plot_distance_between_satellites("STARLINK-1031", "STARLINK-32620")
+    tle_processor.plot_ground_tracks(["STARLINK-1031","STARLINK-32620","STARLINK-35057"])
+    tle_processor.plot_distance_between_satellites("STARLINK-1031", "STARLINK-32620", in_view_only=False)
     

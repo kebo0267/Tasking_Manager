@@ -30,10 +30,15 @@ class TLE:
         self.steps_seconds: int = TLE.TLE_STEPS_SECONDS
         self.times: list = []
         self.satellite: EarthSatellite = None
+        self.foot_print_radius_km: float = 0.0
+        self.default_fov_angle_deg: float = 5.0
 
     # Create getters and setters for each the TLE data element in TLE_FIELDS
     def get_satellite_name(self) -> str:
         return self.sat_name
+
+    def set_default_fov_angle(self, fov_angle_deg: float) -> None:
+        self.default_fov_angle_deg = fov_angle_deg
 
     def set_satellite_name(self, sat_name: str) -> None:
         self.sat_name = sat_name
@@ -272,7 +277,7 @@ class TLE:
                 plt.title(f"Latitude vs Time for\n{self.sat_name}", fontsize='small')
             else:
                 plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
-            plt.xlabel("Time (UTC)")
+            plt.xlabel("Time (Seconds)")
             plt.ylabel("Latitude (degrees)")
             plt.grid(True)
             plt.show()
@@ -284,7 +289,7 @@ class TLE:
                 ax.set_title(f"Latitude vs Time for\n{self.sat_name}", fontsize='small')
             else:
                 ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
-            ax.set_xlabel("Time (UTC)")
+            ax.set_xlabel("Time (seconds)")
             ax.set_ylabel("Latitude (degrees)")
             ax.grid(True)
 
@@ -302,7 +307,7 @@ class TLE:
                 plt.title(f"Longitude vs Time for\n{self.sat_name}", fontsize='small')
             else:
                 plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
-            plt.xlabel("Time (UTC)")
+            plt.xlabel("Time (Seconds)")
             plt.ylabel("Longitude (degrees)")
             plt.grid(True)
             plt.show()
@@ -314,7 +319,7 @@ class TLE:
                 ax.set_title(f"Longitude vs Time for\n{self.sat_name}", fontsize='small')
             else:
                 ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
-            ax.set_xlabel("Time (UTC)")
+            ax.set_xlabel("Time (Seconds)")
             ax.set_ylabel("Longitude (degrees)")
             ax.grid(True)
 
@@ -332,7 +337,7 @@ class TLE:
                 plt.title(f"Altitude vs Time for\n{self.sat_name}", fontsize='small')
             else:
                 plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
-            plt.xlabel("Time (UTC)")
+            plt.xlabel("Time (Seconds)")
             plt.ylabel("Altitude (km)")
             plt.grid(True)
             plt.show()
@@ -343,7 +348,7 @@ class TLE:
                 ax.set_title(f"Altitude vs Time for\n {self.sat_name}", fontsize='small')
             else:
                 ax.set_title(ax.get_title() + f", {self.sat_name}", fontsize='small')
-            ax.set_xlabel("Time (UTC)")
+            ax.set_xlabel("Time (Seconds)")
             ax.set_ylabel("Altitude (km)")
             ax.grid(True)
     
@@ -368,7 +373,7 @@ class TLE:
                 plt.title(plt.gca().get_title() + f", {self.sat_name}", fontsize='small')
             plt.xlabel("Longitude (degrees)")
             plt.ylabel("Latitude (degrees)")
-            #plt.legend(fontsize='small' , loc='upper right')
+            plt.legend(fontsize='small' , loc='upper right')
             plt.grid(True)
             plt.show()
             
@@ -388,23 +393,34 @@ class TLE:
             ax.grid(True)
 
     # Method to plot the distance between two TLE objects at a given time range in kilometers
-    def plot_distance_to_other_satellite(self, other_tle: object, time_range: list=None) -> None:
+    def plot_distance_to_other_satellite(self, other_tle: object, ax: plt.Axes=None, time_range: list=None, in_view_only: bool=False) -> None:
         # Implementation for plotting distance between two TLE objects at a given time range
-        distances = self.distance_to_other_satellite(other_tle, time_range)
-        
-        plt.figure(figsize=(10, 5))
-        plt.plot(distances["distance_km"], label=f"Distance between {self.sat_name} and {other_tle.sat_name}")
-        plt.xlabel("Time (UTC)")
-        plt.ylabel("Distance (km)")
-        plt.title(f"Distance between {self.sat_name} and {other_tle.sat_name} vs Time", fontsize='small')
-        plt.xticks(rotation=45)
-        plt.grid(True)
-        plt.legend(fontsize='small' , loc='upper right')
-        plt.tight_layout()
-        plt.show()
+        distances = self.distance_to_other_satellite(other_tle, time_range, in_view_only=in_view_only)
 
-    # Method to return the distance between two TLE objects at a given time range in kilometers
-    def distance_to_other_satellite(self, other_tle: object, time_range: list=None) -> dict:
+        if ax is None:
+            plt.figure(figsize=(10, 5))
+            plt.plot(distances["distance_km"], label=f"Distance between {self.sat_name} and {other_tle.sat_name}")
+        else:
+            ax.plot(distances["distance_km"], label=f"Distance between {self.sat_name} and {other_tle.sat_name}")
+        if ax is None:
+            plt.xlabel("Time (Seconds)")
+            plt.ylabel("Distance (km)")
+            plt.title(f"Distance between {self.sat_name} and {other_tle.sat_name} vs Time", fontsize='small')
+            plt.xticks(rotation=45)
+            plt.grid(True)
+            plt.legend(fontsize='small' , loc='upper right')
+            plt.tight_layout()
+            plt.show()
+        else:
+            ax.set_xlabel("Time (Seconds)")
+            ax.set_ylabel("Distance (km)")
+            ax.set_title(f"Distance between {self.sat_name} and {other_tle.sat_name} vs Time", fontsize='small')
+            ax.set_xticks(rotation=45)
+            ax.grid(True)
+            ax.legend(fontsize='small' , loc='upper right')
+            ax.tight_layout()
+
+    def distance_to_other_satellite(self, other_tle: object, time_range: list=None, in_view_only: bool=False) -> dict:
         # Implementation for calculating distance between two TLE objects at a given time range
         if time_range is None:
             time_range = self.times
@@ -431,7 +447,7 @@ class TLE:
             pos1 = self.satellite.at(self.times[index])
             pos2 = other_tle.satellite.at(other_tle.times[index])
             
-            in_view = self.in_view_of_other_satellite(other_tle, self.times[index])
+            in_view = in_view_only or self.in_view_of_other_satellite(other_tle, self.times[index])
 
             if not in_view:
                 distance = float(-1)  # or some large number to indicate they are not visible to each other            
@@ -465,3 +481,12 @@ class TLE:
         radius_earth_km = 6371  # Average radius of Earth in kilometers
         in_view = perp_distance > radius_earth_km
         return in_view
+    
+    # Method to calculate the footprint of a TLE object given its altitude and a field of view angle in degrees
+    def calculate_footprint(self, fov_angle_deg: float, altitude_km: float) -> float:
+        
+        # Calculate the footprint radius in kilometers based on the altitude and field of view angle
+        fov_angle_rad = np.radians(fov_angle_deg)
+        footprint_radius_km = altitude_km * np.tan(fov_angle_rad / 2)
+
+        return footprint_radius_km
