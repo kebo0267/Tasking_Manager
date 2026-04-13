@@ -34,6 +34,7 @@ class TLE:
         self.satellite: EarthSatellite = None
         self.foot_print_radius_km: list = None
         self.default_fov_angle_deg: float = TLE.TLE_DEFAULT_FOV_ANGLE_DEG
+        self.fov_intercepts: dict = None
 
     # Create getters and setters for each the TLE data element in TLE_FIELDS
     def get_satellite_name(self) -> str:
@@ -435,16 +436,22 @@ class TLE:
             ax.legend(fontsize='small' , loc='upper right')
             ax.tight_layout()
 
+    def get_distance_to_other_satellite(self, other_tle: object, time: float) -> float:
+        pos1 = self.satellite.at(time).xyz.km
+        pos2 = other_tle.satellite.at(time).xyz.km
+        return (pos1 - pos2).distance().km
+
     def distance_to_other_satellite(self, other_tle: object, time_range: list=None, in_view_only: bool=False) -> dict:
         # Implementation for calculating distance between two TLE objects at a given time range
-        if time_range is None:
-            time_range = self.times
-
+        
         if self.geocentric is None:
             self.generate_ground_track()
 
         if other_tle.geocentric is None:
             other_tle.generate_ground_track()
+
+        if time_range is None:
+            time_range = self.times
         
         # Calculate the distance between the two TLE objects at each time step and return the average distance in kilometers
         distances = {}
@@ -455,25 +462,27 @@ class TLE:
         distances["distance_km"] = []
         
         index = 0
-        for t in self.times:
+        for t in time_range:
             distances["time_hr"].append(t.utc_datetime().isoformat())
             distances["time"].append(t)
+
             
-            pos1 = self.satellite.at(self.times[index])
+            
+            pos1 = self.satellite.at(time_range[index])
             pos2 = other_tle.satellite.at(other_tle.times[index])
             
-            in_view = in_view_only or self.in_view_of_other_satellite(other_tle, self.times[index])
+            in_view = self.in_view_of_other_satellite(other_tle, time_range[index])
 
-            if not in_view:
+            if not in_view and in_view_only:
                 distance = float(-1)  # or some large number to indicate they are not visible to each other            
             else:
-                distance = (pos1 - pos2).distance().km
+                distance = self.get_distance_to_other_satellite(other_tle, time_range[index])       
             distances["distance_km"].append(distance)
             index += 1
         
         return distances
     
-    # Method to determing if two TLE objects are in view of each other at a given time
+    # Method to determine if two TLE objects are in view of each other at a given time
     def in_view_of_other_satellite(self, other_tle: object, time: float) -> bool:
         # Implementation for determining if two TLE objects are in view of each other at a given time
         
@@ -507,3 +516,35 @@ class TLE:
         footprint_radius_km = altitude_km * np.tan(fov_angle_rad / 2)
 
         return footprint_radius_km
+    
+    # Method to determine if the fov of a TLE object overlaps with the fov of another TLE object at a given time
+    def fov_overlaps_with_other_satellite(self, other_tle: object) -> None:
+        # Implementation for determining if the fov of a TLE object overlaps with the fov of another TLE object at a given time
+        if self.geocentric is None:
+            self.generate_ground_track()
+
+        if other_tle.geocentric is None:
+            other_tle.generate_ground_track()
+        
+        for index in range(0, len(self.times)):
+            t = self.times[index]
+            fov = {}
+            fov["time"] = t
+            fov["time_hr"] = t.utc_datetime().isoformat()
+            fov["other_satellite_name"] = other_tle.sat_name
+            fov["in_view"] = self.in_view_of_other_satellite(other_tle, t)
+            fov_range_km = self.foot_print_radius_km[index] + other_tle.foot_print_radius_km[index]
+            distance_between_sats_km = self.get_distance_to_other_satellite(other_tle, t)
+            fov["fov_overlap"] = distance_between_sats_km < fov_range_km 
+            fov["fov_overlap_km"] = fov_range_km
+            
+            self.add_fov_intercept(fov)
+
+
+    def add_fov_intercept(self, intercept: dict) -> None:
+        if self.fov_intercepts is None:
+            self.fov_intercepts = {}
+        # Check if the name of the other satellite is in the fov_intercepts dictionary, if not add it with an empty list
+        if dict["other_satellite_name"] not in self.fov_intercepts.keys():
+            self.fov_intercepts[dict["other_satellite_name"]] = []
+        self.fov_intercepts[dict["other_satellite_name"]].append(intercept)
