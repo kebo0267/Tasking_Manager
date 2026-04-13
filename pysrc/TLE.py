@@ -437,8 +437,8 @@ class TLE:
             ax.tight_layout()
 
     def get_distance_to_other_satellite(self, other_tle: object, time: float) -> float:
-        pos1 = self.satellite.at(time).xyz.km
-        pos2 = other_tle.satellite.at(time).xyz.km
+        pos1 = self.satellite.at(time)
+        pos2 = other_tle.satellite.at(time)
         return (pos1 - pos2).distance().km
 
     def distance_to_other_satellite(self, other_tle: object, time_range: list=None, in_view_only: bool=False) -> dict:
@@ -545,6 +545,6 @@ class TLE:
         if self.fov_intercepts is None:
             self.fov_intercepts = {}
         # Check if the name of the other satellite is in the fov_intercepts dictionary, if not add it with an empty list
-        if dict["other_satellite_name"] not in self.fov_intercepts.keys():
-            self.fov_intercepts[dict["other_satellite_name"]] = []
-        self.fov_intercepts[dict["other_satellite_name"]].append(intercept)
+        if intercept["other_satellite_name"] not in self.fov_intercepts.keys():
+            self.fov_intercepts[intercept["other_satellite_name"]] = []
+        self.fov_intercepts[intercept["other_satellite_name"]].append(intercept)
