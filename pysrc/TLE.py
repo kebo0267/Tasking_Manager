@@ -266,15 +266,17 @@ class TLE:
         # Convert to latitude, longitude, and height (km)
         if self.geocentric is None:
             self.generate_ground_track()
-        statellite_info = {}
-        statellite_info["time_hr"] = [t.utc_datetime().isoformat() for t in self.times]
-        statellite_info["time"] = [ int(t.utc_datetime().timestamp()) for t in self.times]    
-        statellite_info["latitude"] = wgs84.latlon_of(self.geocentric)[0].degrees
-        statellite_info["longitude"] = wgs84.latlon_of(self.geocentric)[1].degrees
-        statellite_info["height_km"] = wgs84.height_of(self.geocentric).km
-        statellite_info["footprint_radius_km"] = self.foot_print_radius_km
+        satellite_info = {}
+        satellite_info["sat_name"] = self.sat_name
+        satellite_info["time_hr"] = [t.utc_datetime().isoformat() for t in self.times]
+        satellite_info["time"] = [ t.utc_datetime().timestamp() for t in self.times]    
+        satellite_info["latitude"] = (wgs84.latlon_of(self.geocentric)[0].degrees).tolist()
+        satellite_info["longitude"] = (wgs84.latlon_of(self.geocentric)[1].degrees).tolist()
+        satellite_info["height_km"] = (wgs84.height_of(self.geocentric).km).tolist()
+        satellite_info["footprint_radius_km"] = self.foot_print_radius_km
+        satellite_info["intercepts"] = self.fov_intercepts
 
-        return statellite_info
+        return satellite_info
 
 
     def plot_Latitude(self, ax: plt.Axes = None) -> None:
@@ -504,7 +506,7 @@ class TLE:
 
         radius_earth_km = 6371  # Average radius of Earth in kilometers
         in_view = perp_distance > radius_earth_km
-        return in_view
+        return in_view.item()  # Return as a scalar value
     
     # Method to calculate the footprint of a TLE object given its altitude and a field of view angle in degrees
     def calculate_footprint(self, altitude_km: float, fov_angle_deg: float = None) -> float:
@@ -515,7 +517,7 @@ class TLE:
         fov_angle_rad = np.radians(fov_angle_deg)
         footprint_radius_km = altitude_km * np.tan(fov_angle_rad / 2)
 
-        return footprint_radius_km
+        return footprint_radius_km.item()  # Return as a scalar value
     
     # Method to determine if the fov of a TLE object overlaps with the fov of another TLE object at a given time
     def fov_overlaps_with_other_satellite(self, other_tle: object) -> None:
@@ -529,13 +531,13 @@ class TLE:
         for index in range(0, len(self.times)):
             t = self.times[index]
             fov = {}
-            fov["time"] = t
+            fov["time"] = t.utc_datetime().timestamp()
             fov["time_hr"] = t.utc_datetime().isoformat()
             fov["other_satellite_name"] = other_tle.sat_name
             fov["in_view"] = self.in_view_of_other_satellite(other_tle, t)
             fov_range_km = self.foot_print_radius_km[index] + other_tle.foot_print_radius_km[index]
             distance_between_sats_km = self.get_distance_to_other_satellite(other_tle, t)
-            fov["fov_overlap"] = distance_between_sats_km < fov_range_km 
+            fov["fov_overlap"] = (distance_between_sats_km < fov_range_km ).item()
             fov["fov_overlap_km"] = fov_range_km
             
             self.add_fov_intercept(fov)

@@ -196,10 +196,22 @@ class TLEProcessor:
         for tle in self.tle_data:
             print(f"Comparing FOV for satellite: {tle.get_satellite_name()}")
             for other_tle in self.tle_data[index:]:
-                print(f"Comparing with satellite: {other_tle.get_satellite_name()}")
+                print(f"Comparing {tle.get_satellite_name()} with satellite: {other_tle.get_satellite_name()}")
                 tle.fov_overlaps_with_other_satellite(other_tle)
             index += 1
-            print(tle.fov_intercepts)
+            self.save_individual_satellite_data_to_json(tle.get_satellite_info())
+
+    # Create method to save data to JSON file with the name of file is the satellite name and the data is stored in
+    # /data/training_data/{satellite_name}.json
+    def save_individual_satellite_data_to_json(self, satellite: dict) -> None:
+        satellite_name = satellite["sat_name"]
+        
+        output_json_file = f"data/training_data/{satellite_name}.json"
+        with open(output_json_file, 'w', encoding='utf-8') as f:
+            print(f"Saving data for satellite: {satellite_name} to file: {output_json_file}")
+            json.dump(satellite, f)
+            
+
                 
 
             
@@ -209,8 +221,8 @@ if __name__ == "__main__":
     tle_processor = TLEProcessor('data/trainging_data_starlink.json')
     #tle_processor = TLEProcessor("data/starlink.txt", "data/starlink.json")
     # Set TLE start time to current UTC time and duration to 2 hours
-    tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=30))
-    tle_processor.set_tle_duration(hours=12, minutes=0)
+    tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=60))
+    tle_processor.set_tle_duration(hours=73, minutes=0)
     
     # Set global TLE start time and duration in TLE class
     TLE.TLE_START_TIME = tle_processor.tle_start_time
