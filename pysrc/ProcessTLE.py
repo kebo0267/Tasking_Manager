@@ -206,23 +206,40 @@ class TLEProcessor:
     def save_individual_satellite_data_to_json(self, satellite: dict) -> None:
         satellite_name = satellite["sat_name"]
         
-        output_json_file = f"data/training_data/{satellite_name}.json"
+        output_json_file = f"../data/demo_data/{satellite_name}.json"
         with open(output_json_file, 'w', encoding='utf-8') as f:
             print(f"Saving data for satellite: {satellite_name} to file: {output_json_file}")
             json.dump(satellite, f)
             
+    # Load file from data/training_data/{satellite_name}.json and comare the fov data with the original TLE data for the satellite and print the results
+    def compare_fov_with_saved_data(self, satellite_name_1: str, satellite_name_2: str) -> None:
+        tle_data_1 = self.get_tle_data_by_name(satellite_name_1)[0]
+        tle_data_2 = self.get_tle_data_by_name(satellite_name_2)[0] 
+
+        if not tle_data_1 or not tle_data_2:
+            print(f"One or both satellites not found: {satellite_name_1}, {satellite_name_2}")
+            return
+
+        if satellite_name_2 in tle_data_1.fov_intercepts.keys():
+            print(f'Satellite {satellite_name_2} is in {satellite_name_1}\'s FOV')
+        if satellite_name_1 in tle_data_2.fov_intercepts.keys():
+            print(f'Satellite {satellite_name_1} is in {satellite_name_2}\'s FOV')
+        print(f'{satellite_name_1} FOV Intercepts contains {len(tle_data_1.fov_intercepts[satellite_name_2])} entries')
+        print(f'{satellite_name_2} FOV Intercepts contains {len(tle_data_2.fov_intercepts[satellite_name_1])} entries')
+        
 
                 
 
             
+            
 
 if __name__ == "__main__":
     print(Path.cwd())
-    tle_processor = TLEProcessor('data/trainging_data_starlink.json')
+    tle_processor = TLEProcessor('../data/training_data_starlink.json')
     #tle_processor = TLEProcessor("data/starlink.txt", "data/starlink.json")
     # Set TLE start time to current UTC time and duration to 2 hours
     tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=60))
-    tle_processor.set_tle_duration(hours=73, minutes=0)
+    tle_processor.set_tle_duration(hours=2, minutes=0)
     
     # Set global TLE start time and duration in TLE class
     TLE.TLE_START_TIME = tle_processor.tle_start_time

@@ -268,6 +268,8 @@ class TLE:
             self.generate_ground_track()
         satellite_info = {}
         satellite_info["sat_name"] = self.sat_name
+        satellite_info["sat_line1"] = self.tle_line1
+        satellite_info["sat_line2"] = self.tle_line2
         satellite_info["time_hr"] = [t.utc_datetime().isoformat() for t in self.times]
         satellite_info["time"] = [ t.utc_datetime().timestamp() for t in self.times]    
         satellite_info["latitude"] = (wgs84.latlon_of(self.geocentric)[0].degrees).tolist()
@@ -531,16 +533,27 @@ class TLE:
         for index in range(0, len(self.times)):
             t = self.times[index]
             fov = {}
-            fov["time"] = t.utc_datetime().timestamp()
-            fov["time_hr"] = t.utc_datetime().isoformat()
+            other_fov = {}
+            other_fov["time"] = fov["time"] = t.utc_datetime().timestamp()
+            other_fov["time_hr"] = fov["time_hr"] = t.utc_datetime().isoformat()
             fov["other_satellite_name"] = other_tle.sat_name
-            fov["in_view"] = self.in_view_of_other_satellite(other_tle, t)
+            other_fov["other_satellite_name"] = self.sat_name
+            other_fov["in_view"] = fov["in_view"] = self.in_view_of_other_satellite(other_tle, t)
             fov_range_km = self.foot_print_radius_km[index] + other_tle.foot_print_radius_km[index]
             distance_between_sats_km = self.get_distance_to_other_satellite(other_tle, t)
-            fov["fov_overlap"] = (distance_between_sats_km < fov_range_km ).item()
-            fov["fov_overlap_km"] = fov_range_km
+            other_fov["fov_overlap"] = fov["fov_overlap"] = (distance_between_sats_km < fov_range_km ).item()
+            other_fov["fov_overlap_km"] = fov["fov_overlap_km"] = fov_range_km
             
             self.add_fov_intercept(fov)
+            self.add_fov_intercept_for_other_satellite(other_tle, other_fov)
+
+    def add_fov_intercept_for_other_satellite(self, other_tle: object, fov_intercept: dict) -> None:
+        if other_tle.fov_intercepts is None:
+            other_tle.fov_intercepts = {}
+        # Check if the name of the other satellite is in the fov_intercepts dictionary, if not add it with an empty list
+        if fov_intercept["other_satellite_name"] not in other_tle.fov_intercepts.keys():
+            other_tle.fov_intercepts[fov_intercept["other_satellite_name"]] = []
+        other_tle.fov_intercepts[fov_intercept["other_satellite_name"]].append(fov_intercept)
 
 
     def add_fov_intercept(self, intercept: dict) -> None:

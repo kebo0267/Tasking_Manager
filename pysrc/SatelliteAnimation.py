@@ -13,7 +13,6 @@ animated_plot, = axis.plot([], [] )
 
 
 def update_data(frame):
-    print (frame)
     animated_plot.set_data(t[:frame], y[:frame])
 
     
