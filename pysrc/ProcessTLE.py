@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 from operator import index
+import os
 import random
 from TLE import TLE 
 from pathlib import Path
@@ -206,7 +207,7 @@ class TLEProcessor:
     def save_individual_satellite_data_to_json(self, satellite: dict) -> None:
         satellite_name = satellite["sat_name"]
         
-        output_json_file = f"../data/demo_data/{satellite_name}.json"
+        output_json_file = f"data/training_data/{satellite_name}.json"
         with open(output_json_file, 'w', encoding='utf-8') as f:
             print(f"Saving data for satellite: {satellite_name} to file: {output_json_file}")
             json.dump(satellite, f)
@@ -235,11 +236,17 @@ class TLEProcessor:
 
 if __name__ == "__main__":
     print(Path.cwd())
-    tle_processor = TLEProcessor('../data/training_data_starlink.json')
+    tle_processor = TLEProcessor('data/training_data_starlink.json')
+    # Check if data directory exists and move working directory up one level if it does not to find the data directory
+    if not Path('data').exists():
+        print("Data directory not found in current working directory. Moving up one level to find data directory.")
+        os.chdir('..')
+    print(Path.cwd())
+    
     #tle_processor = TLEProcessor("data/starlink.txt", "data/starlink.json")
     # Set TLE start time to current UTC time and duration to 2 hours
     tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=60))
-    tle_processor.set_tle_duration(hours=2, minutes=0)
+    tle_processor.set_tle_duration(hours=26, minutes=0)
     
     # Set global TLE start time and duration in TLE class
     TLE.TLE_START_TIME = tle_processor.tle_start_time
