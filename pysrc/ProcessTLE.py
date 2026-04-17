@@ -13,6 +13,7 @@ class TLEProcessor:
     def __init__(self, tle_file, json_file=None):
         self.tle_file = tle_file
         self.json_file = json_file
+        self.data_directory = None
         self.tle_data = []
         self.tle_start_time: datetime = datetime.now(timezone.utc)
         self.tle_duration_hours: int = 2
@@ -33,6 +34,9 @@ class TLEProcessor:
         self.tle_duration_hours = int((self.tle_end_time - self.tle_start_time).total_seconds() // 3600)
         self.tle_duration_minutes = int(((self.tle_end_time - self.tle_start_time).total_seconds() % 3600) // 60)
 
+    def set_data_directory(self, data_directory: str) -> None:
+        self.data_directory = data_directory
+        
     def read_tle_data(self) -> None:
         # Implementation for reading TLE data from file
         
@@ -131,9 +135,9 @@ class TLEProcessor:
         tle1.plot_distance_to_other_satellite(tle2, in_view_only=in_view_only)
 
     # Create histogram of satellite inclination angles
-    def plot_inclination_histogram(self) -> None:
+    def plot_inclination_histogram(self,bins: int=200) -> None:
         inclinations = [tle.get_inclination() for tle in self.tle_data]
-        plt.hist(inclinations, bins=200, edgecolor='black')
+        plt.hist(inclinations, bins=bins, edgecolor='black')
         plt.title('Histogram of Satellite Inclination Angles')
         plt.xlabel('Inclination (degrees)')
         plt.ylabel('Number of Satellites')
@@ -244,31 +248,34 @@ class TLEProcessor:
 
 if __name__ == "__main__":
     print(Path.cwd())
-    tle_processor = TLEProcessor('data/training_data_starlink.json')
+    
     # Check if data directory exists and move working directory up one level if it does not to find the data directory
     if not Path('data').exists():
         print("Data directory not found in current working directory. Moving up one level to find data directory.")
         os.chdir('..')
     print(Path.cwd())
-    
     #tle_processor = TLEProcessor("data/starlink.txt", "data/starlink.json")
+    tle_processor = TLEProcessor('data/training_data_starlink.json')
+    
     # Set TLE start time to current UTC time and duration to 2 hours
     tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=60))
     tle_processor.set_tle_duration(hours=26, minutes=0)
-    
+    tle_processor.set_data_directory('data/demo_data')
     # Set global TLE start time and duration in TLE class
     TLE.TLE_START_TIME = tle_processor.tle_start_time
     TLE.TLE_END_TIME = tle_processor.tle_end_time
     TLE.TLE_DEFAULT_FOV_ANGLE_DEG = 20
-    tle_processor.process()
+    tle_processor.load_data_from_json_directory('data/demo_data')
+
+    #tle_processor.process()
     
 
-    #tle_processor.plot_ground_tracks(["STARLINK-1031","STARLINK-32620","STARLINK-35057"])
-    #tle_processor.plot_distance_between_satellites("STARLINK-1031", "STARLINK-32620", in_view_only=False)
-    #tle_processor.plot_inclination_histogram()
-    #tle_processor.plot_footprint_radius_over_time("STARLINK-35057")
-    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(0, 50), output_json_file='data/trainging_data_starlink.json', append=False)
-    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(50, 60), output_json_file='data/trainging_data_starlink.json', append=True)
-    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(60, 75), output_json_file='data/trainging_data_starlink.json', append=True)
-    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(85, 100), output_json_file='data/trainging_data_starlink.json', append=True)
+    #tle_processor.plot_ground_tracks(["STARLINK-4467","STARLINK-34277"])
+    #tle_processor.plot_distance_between_satellites("STARLINK-4467", "STARLINK-34277", in_view_only=True)
+    #tle_processor.plot_inclination_histogram(100)
+    #tle_processor.plot_footprint_radius_over_time("STARLINK-34277")
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(0, 50), output_json_file='data/training_data_starlink.json', append=False)
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(50, 60), output_json_file='data/training_data_starlink.json', append=True)
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(60, 75), output_json_file='data/training_data_starlink.json', append=True)
+    #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(85, 100), output_json_file='data/training_data_starlink.json', append=True)
     tle_processor.compare_fov_between_satellites()

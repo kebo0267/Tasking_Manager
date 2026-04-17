@@ -588,8 +588,8 @@ class TLE:
             if endtime is not None:
                 self.end_time = datetime.fromtimestamp(endtime, tz=timezone.utc)
             
-            if self.get("time", [None]) is not None and len(data.get("time", [])) >= 2:
-                self.steps_seconds = data.get("time", [None])[1] - data.get("time", [None])[0] 
+            if data["time"] is not None and len(data["time"]) >= 2:
+                self.steps_seconds = data["time"][1] - data["time"][0] 
 
             self.generate_ground_track()
 
