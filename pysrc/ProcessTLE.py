@@ -231,7 +231,16 @@ class TLEProcessor:
             print(f'Satellite {satellite_name_1} is in {satellite_name_2}\'s FOV')
         print(f'{satellite_name_1} FOV Intercepts contains {len(tle_data_1.fov_intercepts[satellite_name_2])} entries')
         print(f'{satellite_name_2} FOV Intercepts contains {len(tle_data_2.fov_intercepts[satellite_name_1])} entries')
-        
+
+    # Create method to load data from JSON files in a given directory and saves them into self.tle_data as TLE objects
+    def load_data_from_json_directory(self, directory: str) -> None:
+        for filename in os.listdir(directory):
+            if filename.endswith('.json'):
+                file_path = os.path.join(directory, filename)
+                tle_object = TLE()
+                tle_object.load_data_from_json_file(file_path)
+                self.tle_data.append(tle_object)
+        print(f"Total TLE entries loaded from JSON directory: {len(self.tle_data)}")
 
 if __name__ == "__main__":
     print(Path.cwd())

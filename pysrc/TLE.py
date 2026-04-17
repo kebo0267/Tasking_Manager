@@ -563,3 +563,37 @@ class TLE:
         if intercept["other_satellite_name"] not in self.fov_intercepts.keys():
             self.fov_intercepts[intercept["other_satellite_name"]] = []
         self.fov_intercepts[intercept["other_satellite_name"]].append(intercept)
+
+    def load_data_from_json_file(self, json_file: str) -> None:
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            if "intercepts" in data:
+                self.fov_intercepts = data["intercepts"]
+            
+            if "sat_name" in data:
+                self.sat_name = data["sat_name"]
+            
+            if "sat_line1" in data:
+                self.tle_line1 = data["sat_line1"]
+            
+            if "sat_line2" in data:
+                self.tle_line2 = data["sat_line2"]
+
+            self.parse_tle_to_dict()
+            startTime = data.get("time", [None])[0]
+            if startTime is not None:
+                self.start_time = datetime.fromtimestamp(startTime, tz=timezone.utc)
+            
+            endtime = data.get("time", [None])[-1]
+            if endtime is not None:
+                self.end_time = datetime.fromtimestamp(endtime, tz=timezone.utc)
+            
+            if self.get("time", [None]) is not None and len(data.get("time", [])) >= 2:
+                self.steps_seconds = data.get("time", [None])[1] - data.get("time", [None])[0] 
+
+            self.generate_ground_track()
+
+            self.foot_print_radius_km = data.get("footprint_radius_km", self.foot_print_radius_km)
+
+            print(f"Data loaded from file: {json_file}")
+            return data
