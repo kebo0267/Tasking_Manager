@@ -33,12 +33,26 @@ class TLE:
         self.times: list = []
         self.satellite: EarthSatellite = None
         self.foot_print_radius_km: list = None
+        self.latitude = None
+        self.longitude = None
+        self.height_km = None
         self.default_fov_angle_deg: float = TLE.TLE_DEFAULT_FOV_ANGLE_DEG
         self.fov_intercepts: dict = None
 
     # Create getters and setters for each the TLE data element in TLE_FIELDS
     def get_satellite_name(self) -> str:
         return self.sat_name
+    
+    def get_satellite_id(self) -> str:
+        sat_id = self.sat_name.split("-")[1].split()[0]
+        return sat_id
+    
+    def get_lat_lon_by_index(self, index: int) -> tuple:
+        if self.latitude is None or self.longitude is None:
+            self.generate_ground_track()
+        if index < 0 or index >= len(self.latitude):
+            index = -1  # Return the last position if index is out of bounds
+        return (self.latitude[index], self.longitude[index])
 
     def set_default_fov_angle(self, fov_angle_deg: float) -> None:
         self.default_fov_angle_deg = fov_angle_deg
@@ -105,6 +119,15 @@ class TLE:
     
     def get_rev_number(self) -> int:
         return int(self.tle_object.get(TLE.TLE_FIELDS[17], 0))
+    
+    def get_times(self) -> list:
+        return self.times
+    
+    def get_time_hr(self) -> list:
+        # Convert float to utc_datetime and then to ISO format string
+        hr_time =[datetime.fromtimestamp(timestamp_float, tz=timezone.utc).isoformat() for timestamp_float in self.times]
+
+        return hr_time
 
     def fixed_width_string(self, text: str, width: int, align: str = 'left', fill_char: str = ' ') -> str:
         """
@@ -258,9 +281,11 @@ class TLE:
 
         # Get geocentric position at all times
         self.geocentric = self.satellite.at(self.times)
-        heights = wgs84.height_of(self.geocentric).km
+        self.height_km = wgs84.height_of(self.geocentric).km
+        self.latitude = (wgs84.latlon_of(self.geocentric)[0].degrees).tolist()
+        self.longitude =  (wgs84.latlon_of(self.geocentric)[1].degrees).tolist()
         # For each element in heights, calculate the footprint radius in kilometers using the function self.calculate   _footprint and store the results in self.foot_print_radius_km
-        self.foot_print_radius_km = [ self.calculate_footprint(altitude_km=h) for h in heights ]   
+        self.foot_print_radius_km = [ self.calculate_footprint(altitude_km=h) for h in self.height_km ]   
 
     def get_satellite_info(self) -> dict: 
         # Convert to latitude, longitude, and height (km)
@@ -272,9 +297,22 @@ class TLE:
         satellite_info["sat_line2"] = self.tle_line2
         satellite_info["time_hr"] = [t.utc_datetime().isoformat() for t in self.times]
         satellite_info["time"] = [ t.utc_datetime().timestamp() for t in self.times]    
-        satellite_info["latitude"] = (wgs84.latlon_of(self.geocentric)[0].degrees).tolist()
-        satellite_info["longitude"] = (wgs84.latlon_of(self.geocentric)[1].degrees).tolist()
-        satellite_info["height_km"] = (wgs84.height_of(self.geocentric).km).tolist()
+        if self.latitude is None:
+            satellite_info["latitude"] = (wgs84.latlon_of(self.geocentric)[0].degrees).tolist()
+        else:
+            satellite_info["latitude"] = self.latitude
+
+        if self.longitude is None:
+            satellite_info["longitude"] = (wgs84.latlon_of(self.geocentric)[1].degrees).tolist()
+        else:
+            satellite_info["longitude"] = self.longitude
+
+        if self.height_km is None:
+            satellite_info["height_km"] = (wgs84.height_of(self.geocentric).km).tolist()
+        else:
+            satellite_info["height_km"] = self.height_km.tolist()
+
+        # Convert numpy arrays to lists for JSON serialization
         satellite_info["footprint_radius_km"] = self.foot_print_radius_km
         satellite_info["intercepts"] = self.fov_intercepts
 
@@ -567,8 +605,6 @@ class TLE:
     def load_data_from_json_file(self, json_file: str) -> None:
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            if "intercepts" in data:
-                self.fov_intercepts = data["intercepts"]
             
             if "sat_name" in data:
                 self.sat_name = data["sat_name"]
@@ -580,20 +616,72 @@ class TLE:
                 self.tle_line2 = data["sat_line2"]
 
             self.parse_tle_to_dict()
-            startTime = data.get("time", [None])[0]
-            if startTime is not None:
-                self.start_time = datetime.fromtimestamp(startTime, tz=timezone.utc)
-            
-            endtime = data.get("time", [None])[-1]
-            if endtime is not None:
-                self.end_time = datetime.fromtimestamp(endtime, tz=timezone.utc)
+
+            self.times = data["time"]
+            self.startTime = data["time"][0]
+            self.endtime = data["time"][-1]
             
             if data["time"] is not None and len(data["time"]) >= 2:
                 self.steps_seconds = data["time"][1] - data["time"][0] 
 
-            self.generate_ground_track()
+            #self.generate_ground_track()
+            if "latitude" in data:
+                self.latitude = data["latitude"]
+            
+            if "longitude" in data:
+                self.longitude = data["longitude"]
 
-            self.foot_print_radius_km = data.get("footprint_radius_km", self.foot_print_radius_km)
+            if "height_km" in data:
+                self.height_km = data["height_km"]
+            
+            if "footprint_radius_km" in data:
+                self.foot_print_radius_km = data["footprint_radius_km"]
+
+            if "intercepts" in data:
+                self.fov_intercepts = data["intercepts"]
 
             print(f"Data loaded from file: {json_file}")
-            return data
+
+    
+    # Method to export the Satellite info to a CSV file
+    def get_csv_by_index(self, index: int )-> list:
+        #if self.geocentric is None:
+        #    self.generate_ground_track()
+        sat_id = self.get_satellite_id()
+
+        csv_list = []
+        csv_lead = f"{self.sat_name},{sat_id},{self.times[index]},{self.latitude[index]},{self.longitude[index]},{self.height_km[index]},{self.foot_print_radius_km[index]}"
+        for intercept_key in self.fov_intercepts.keys():
+            intercept_list = self.fov_intercepts[intercept_key]
+            intercept = intercept_list[index]
+            other_sat_id = intercept["other_satellite_name"].split("-")[1].split()[0]
+            in_view = intercept["in_view"]
+            fov = intercept["fov_overlap"]
+            fov_overlap_km = intercept["fov_overlap_km"]
+            csv_line = f"{csv_lead},{other_sat_id},{in_view},{fov_overlap_km},{fov}"
+            csv_list.append(csv_line)
+        return csv_list
+    
+    def get_csv_header(self) -> str:
+        return  "sat_name,st_id,time,latitude,longitude,altitude_km,footprint_radius_km,other_sat_id,in_view,fov_overlap_km,fov"
+    
+    def is_in_fov_by_index(self, index: int) -> bool:
+        if self.fov_intercepts is None:
+            return False
+        for intercept_key in self.fov_intercepts.keys():
+            intercept_list = self.fov_intercepts[intercept_key]
+            intercept = intercept_list[index]
+            if intercept["fov_overlap"]:
+                return True
+        return False
+    
+    def on_key(self, event):
+        if event.key == ' ':
+            self.pause_animation()
+            print(f"Animation paused")
+        elif event.key == 'r':
+            self.reset_animation()
+        elif event.key == 'right':
+            self.move_forward()
+        elif event.key == 'left':
+            self.move_backward()

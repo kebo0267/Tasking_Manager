@@ -7,6 +7,7 @@ import random
 from TLE import TLE 
 from pathlib import Path
 from matplotlib import pyplot as plt
+import Globploter as gp
 
 
 class TLEProcessor:
@@ -84,7 +85,7 @@ class TLEProcessor:
             self.save_to_json()
 
 
-    # Metod to retrieve TLE data as a list filtered by satellite name
+    # Method to retrieve TLE data as a list filtered by satellite name
     def get_tle_data_by_name(self, satellite_name: str=None) -> list:
         if satellite_name is None:
             return [tle for tle in self.tle_data]
@@ -209,13 +210,13 @@ class TLEProcessor:
     # Create method to save data to JSON file with the name of file is the satellite name and the data is stored in
     # /data/training_data/{satellite_name}.json
     def save_individual_satellite_data_to_json(self, satellite: dict) -> None:
-        output_dir = Path('data/training_data')
+        output_dir = Path(self.data_directory)
         if not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
 
         satellite_name = satellite["sat_name"]
         
-        output_json_file = f"data/training_data/{satellite_name}.json"
+        output_json_file = f"{output_dir}/{satellite_name}.json"
         with open(output_json_file, 'w', encoding='utf-8') as f:
             print(f"Saving data for satellite: {satellite_name} to file: {output_json_file}")
             json.dump(satellite, f)
@@ -237,7 +238,9 @@ class TLEProcessor:
         print(f'{satellite_name_2} FOV Intercepts contains {len(tle_data_2.fov_intercepts[satellite_name_1])} entries')
 
     # Create method to load data from JSON files in a given directory and saves them into self.tle_data as TLE objects
-    def load_data_from_json_directory(self, directory: str) -> None:
+    def load_data_from_json_directory(self, directory: str=None) -> None:
+        if directory is None:
+            directory = self.data_directory
         for filename in os.listdir(directory):
             if filename.endswith('.json'):
                 file_path = os.path.join(directory, filename)
@@ -245,6 +248,21 @@ class TLEProcessor:
                 tle_object.load_data_from_json_file(file_path)
                 self.tle_data.append(tle_object)
         print(f"Total TLE entries loaded from JSON directory: {len(self.tle_data)}")
+
+    # Method to create CSV file of TLE data
+    def save_tle_data_to_csv(self, output_csv_file: str) -> None:
+        header = self.tle_data[0].get_csv_header()
+        line_count = 0
+        with open(output_csv_file, 'w', encoding='utf-8') as f:
+            f.write(header + "\n")
+            for index in range(len(self.tle_data[0].get_times())):
+                print(f"Processing index {index} for CSV output")
+                for tle in self.tle_data:
+                    csv_lines = tle.get_csv_by_index(index)
+                    line_count += len(csv_lines)
+                    for csv_line in csv_lines:
+                        f.write(csv_line + "\n")
+
 
 if __name__ == "__main__":
     print(Path.cwd())
@@ -257,15 +275,16 @@ if __name__ == "__main__":
     #tle_processor = TLEProcessor("data/starlink.txt", "data/starlink.json")
     tle_processor = TLEProcessor('data/training_data_starlink.json')
     
-    # Set TLE start time to current UTC time and duration to 2 hours
+    # Set TLE start time to current UTC time and duration to 13 hours
     tle_processor.set_tle_start_time(datetime.now(timezone.utc) - timedelta(minutes=60))
-    tle_processor.set_tle_duration(hours=26, minutes=0)
+    tle_processor.set_tle_duration(hours=13, minutes=0)
     tle_processor.set_data_directory('data/demo_data')
     # Set global TLE start time and duration in TLE class
     TLE.TLE_START_TIME = tle_processor.tle_start_time
     TLE.TLE_END_TIME = tle_processor.tle_end_time
     TLE.TLE_DEFAULT_FOV_ANGLE_DEG = 20
-    tle_processor.load_data_from_json_directory('data/demo_data')
+    tle_processor.load_data_from_json_directory()
+    #tle_processor.save_tle_data_to_csv('data/training_data/starlink_data.csv')
 
     #tle_processor.process()
     
@@ -278,4 +297,12 @@ if __name__ == "__main__":
     #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(50, 60), output_json_file='data/training_data_starlink.json', append=True)
     #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(60, 75), output_json_file='data/training_data_starlink.json', append=True)
     #tle_processor.save_random_satellites_by_inclination(num_satellites=50, inclination_range=(85, 100), output_json_file='data/training_data_starlink.json', append=True)
-    tle_processor.compare_fov_between_satellites()
+    #tle_processor.compare_fov_between_satellites()
+    
+    
+    global_plotter = gp.GlobPlotter()
+
+    for tle in tle_processor.tle_data:
+        global_plotter.add_moving_point(tle)
+    global_plotter.show()
+
